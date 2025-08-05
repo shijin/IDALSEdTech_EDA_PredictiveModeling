@@ -1,0 +1,522 @@
+USE ROLE ACCOUNTADMIN;
+USE WAREHOUSE COMPUTE_WH;
+USE SCHEMA IDALS_DATA;
+SELECT
+    *
+FROM
+    idalsuserdata
+LIMIT
+    10;
+
+    
+// Total rows
+SELECT
+    COUNT(*)
+FROM
+    idalsuserdata;
+
+    
+// Merging first_name and last_name
+ALTER TABLE
+    idalsuserdata
+ADD
+    COLUMN full_name STRING;
+
+    
+UPDATE
+    idalsuserdata
+SET
+    full_name = CONCAT(first_name, ' ', last_name) // Dropping first_name and last_name
+ALTER TABLE
+    idalsuserdata DROP COLUMN first_name;
+ALTER TABLE
+    idalsuserdata DROP COLUMN last_name;
+
+    
+// Adding sequential IDs
+    CREATE
+    OR REPLACE TABLE idalsuserdatanew AS
+SELECT
+    ROW_NUMBER() OVER (
+        ORDER BY
+            created_at
+    ) AS user_id,
+    *
+FROM
+    idalsuserdata;
+
+// Data preview     
+SELECT
+    *
+FROM
+    idalsuserdatanew
+LIMIT
+    10;
+
+    
+// Flagging suspicious names and removing gibberish columns
+ALTER TABLE
+    idalsuserdatanew
+ADD
+    COLUMN is_gibberish BOOLEAN DEFAULT FALSE;
+UPDATE
+    idalsuserdatanew
+SET
+    is_gibberish = TRUE
+WHERE
+    REGEXP_LIKE(full_name, '^[a-zA-Z]{1,4}$') -- very short names
+    OR REGEXP_LIKE(full_name, '^[A-Z]{6,}$') -- all uppercase gibberish
+    OR REGEXP_LIKE(full_name, '.*[^aeiouAEIOU]{5,}.*') -- lacks vowels (e.g., Xyzqwr)
+    OR REGEXP_LIKE(full_name, '[0-9@#$%^&*]');
+-- contains special characters or digits
+
+// Updating gibberish column to True 
+SELECT
+    *
+FROM
+    idalsuserdatanew
+WHERE
+    is_gibberish = TRUE;
+
+    
+// Setting is_gibberish column to False
+UPDATE
+    idalsuserdatanew
+SET
+    is_gibberish = FALSE;
+
+    
+// Detecting and cleaning repeated names
+ALTER TABLE
+    idalsuserdatanew
+ADD
+    COLUMN full_name_cleaned STRING;
+
+    
+// Updating by removing repeated phrases
+UPDATE
+    idalsuserdatanew
+SET
+    full_name_cleaned = TRIM(SUBSTRING(full_name, 1, LENGTH(full_name) / 2))
+WHERE
+    full_name IS NOT NULL
+    AND LEFT(full_name, LENGTH(full_name) / 2) = RIGHT(full_name, LENGTH(full_name) / 2);
+
+    
+// Making initials in capital letter in full_name_cleaned columns
+UPDATE
+    idalsuserdatanew
+SET
+    full_name_cleaned = INITCAP(full_name)
+WHERE
+    full_name IS NOT NULL;
+
+    
+// Detecting gibberish names under full_name_cleaned column
+UPDATE
+    idalsuserdatanew
+SET
+    is_gibberish = REGEXP_LIKE(full_name_cleaned, '^[^a-zA-Z]+$')
+    OR -- only non-alphabetic chars
+    LENGTH(full_name_cleaned) < 3
+    OR (
+        NOT REGEXP_LIKE(full_name_cleaned, '[aeiouAEIOU]')
+        AND LENGTH(full_name_cleaned) >= 5
+    )
+WHERE
+    full_name_cleaned IS NOT NULL;
+
+    
+// Data preview
+SELECT
+    user_id,
+    full_name_cleaned
+FROM
+    idalsuserdatanew
+WHERE
+    is_gibberish = TRUE
+LIMIT
+    100;
+
+    
+// Detecting gibberish names under full_name_cleaned column
+UPDATE
+    idalsuserdatanew
+SET
+    is_gibberish = REGEXP_LIKE(full_name_cleaned, '^[^a-zA-Z]+$')
+    OR -- only numbers/symbols
+    LENGTH(full_name_cleaned) < 2 -- ultra short
+WHERE
+    full_name_cleaned IS NOT NULL;
+
+    
+// Identifying gibberish names
+UPDATE
+    idalsuserdatanew
+SET
+    is_gibberish = TRUE
+WHERE
+    full_name_cleaned IS NOT NULL
+    AND (
+        -- Very long single words (often fake)
+        REGEXP_LIKE(full_name_cleaned, '\\b\\w{13,}\\b')
+        OR -- High uppercase ratio (junk names often have too many caps)
+        LENGTH(REGEXP_REPLACE(full_name_cleaned, '[^A-Z]', '')) > 6
+        AND LENGTH(full_name_cleaned) <= 25
+        OR -- Low vowel count (e.g., less than 2 vowels in long name)
+        (
+            LENGTH(
+                REGEXP_REPLACE(full_name_cleaned, '[^aeiouAEIOU]', '')
+            ) < 2
+            AND LENGTH(full_name_cleaned) >= 10
+        )
+        OR -- Names with no space (looks like gibberish if both parts are fake)
+        NOT full_name_cleaned LIKE '% %'
+        AND LENGTH(full_name_cleaned) > 14
+    );
+
+    
+// Data preview
+SELECT
+    user_id,
+    full_name_cleaned
+FROM
+    idalsuserdatanew
+WHERE
+    is_gibberish = TRUE
+LIMIT
+    150;
+
+    
+// Standardizing email column
+UPDATE
+    idalsuserdatanew
+SET
+    email = LOWER(TRIM(email));
+SELECT
+    *
+FROM
+    idalsuserdatanew
+WHERE
+    user_id = 9360;
+
+    
+// Updating proper names
+UPDATE
+    idalsuserdatanew
+SET
+    full_name = 'Harshita Sharma'
+WHERE
+    user_id = 12553;
+
+    
+// Deleting gibberish rows
+DELETE FROM
+    idalsuserdatanew
+WHERE
+    user_id = 11186;
+
+    
+// Replacing gibberish values in full_name_cleaned column
+UPDATE
+    idalsuserdatanew
+SET
+    full_name = TRIM(REPLACE(full_name, '*', ''))
+WHERE
+    user_id = 12271;
+
+    
+// Data preview
+SELECT
+    user_id,
+    email,
+    full_name
+FROM
+    idalsuserdatanew
+WHERE
+    user_id BETWEEN 12001
+    AND 12553
+ORDER BY
+    user_id;
+
+    
+// Data preview
+SELECT
+    *
+FROM
+    idalsuserdatanew
+LIMIT
+    100;
+
+    
+// Total count
+SELECT
+    COUNT(*)
+FROM
+    idalsuserdatanew;
+
+    
+// View all unique country values
+SELECT
+    DISTINCT TRIM(LOWER(country)) AS country_cleaned,
+    COUNT(*)
+FROM
+    idalsuserdatanew
+GROUP BY
+    country_cleaned
+ORDER BY
+    COUNT(*) DESC;
+
+    
+// Standardize Country Names
+UPDATE
+    idalsuserdatanew
+SET
+    country = 'India'
+WHERE
+    LOWER(TRIM(country)) IN (
+        'india',
+        'india.',
+        'india ',
+        'indai',
+        'ind',
+        'indai.',
+        'in',
+        'bharat'
+    );
+
+    
+// Check Null Country Records
+SELECT
+    DISTINCT location,
+    user_id
+FROM
+    idalsuserdatanew
+WHERE
+    country IS NULL
+    AND location IS NOT NULL
+ORDER BY
+    location;
+
+    
+// Updating country which had null values
+UPDATE
+    idalsuserdatanew
+SET
+    country = 'United States'
+WHERE
+    user_id = 2278;
+
+    
+// Updating country which had null values
+UPDATE
+    idalsuserdatanew
+SET
+    country = 'India'
+WHERE
+    country IS NULL;
+DROP TABLE duplicate_full_name_backup;
+// Taking backup of second name occurences
+    CREATE TABLE duplicate_full_name_backup1 AS
+SELECT
+    *
+FROM
+    (
+        SELECT
+            *
+        FROM
+            (
+                SELECT
+                    *,
+                    LAG(full_name) OVER (
+                        ORDER BY
+                            user_id
+                    ) AS previous_name
+                FROM
+                    idalsuserdatanew
+            ) t
+        WHERE
+            full_name = previous_name
+    );
+
+    
+// Deleting consecutive duplicates
+DELETE FROM
+    idalsuserdatanew
+WHERE
+    user_id IN (
+        SELECT
+            user_id
+        FROM
+            (
+                SELECT
+                    user_id,
+                    full_name,
+                    LAG(full_name) OVER (
+                        ORDER BY
+                            user_id
+                    ) AS previous_name
+                FROM
+                    idalsuserdatanew
+            ) t
+        WHERE
+            full_name = previous_name
+    );
+
+    
+// Data preview
+SELECT
+    *
+FROM
+    idalsuserdatanew
+ORDER BY
+    user_id
+LIMIT
+    100;
+
+    
+// Adding one column of subscription status
+ALTER TABLE
+    idalsuserdatanew
+ADD
+    COLUMN subscribed STRING;
+
+    
+// Updating it with status Yes or No
+UPDATE
+    idalsuserdatanew
+SET
+    subscribed = CASE
+        WHEN plan_expires_at IS NOT NULL THEN 'YES'
+        ELSE 'NO'
+    END;
+
+    
+// Ensuring standard is changed to Full Access 30
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Full Access 30'
+WHERE
+    subscription_plan = 'Standard';
+
+    
+// Renaming values in subscription_plan for better understanding
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Free'
+WHERE
+    subscription_plan = 'Basic';
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Monthly'
+WHERE
+    subscription_plan = 'Full Access 30';
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Weekly'
+WHERE
+    subscription_plan = 'Full Access 7';
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Half Yearly'
+WHERE
+    subscription_plan = 'Full Access 180';
+UPDATE
+    idalsuserdatanew
+SET
+    subscription_plan = 'Yearly'
+WHERE
+    subscription_plan = 'Full Access 365';
+
+    
+// Data preview
+SELECT
+    *
+FROM
+    idalsuserdatanew
+ORDER BY
+    user_id
+LIMIT
+    100;
+
+    
+// Dropping columns full_name and is_gibberish columns
+ALTER TABLE
+    idalsuserdatanew DROP COLUMN full_name;
+ALTER TABLE
+    idalsuserdatanew DROP COLUMN is_gibberish;
+
+    
+// Renaming column name full_name_cleaned to full_name
+ALTER TABLE
+    idalsuserdatanew RENAME COLUMN full_name_cleaned to full_name;
+
+    
+// Data preview
+SELECT
+    *
+FROM
+    subscribedusers;
+
+    
+// Adding subscriptions column
+ALTER TABLE
+    idalsuserdatanew
+ADD
+    COLUMN subscriptions INT;
+
+    
+// Updating the subscriptions column
+UPDATE
+    idalsuserdatanew u
+SET
+    subscriptions = s.sub_count
+FROM
+    (
+        SELECT
+            email,
+            COUNT(*) AS sub_count
+        FROM
+            subscribedusers
+        GROUP BY
+            email
+    ) s
+WHERE
+    TRIM(LOWER(u.email)) = TRIM(LOWER(s.email));
+
+    
+// Adding column of repeated_subscriber
+ALTER TABLE
+    idalsuserdatanew
+ADD
+    COLUMN repeated_subscriber STRING;
+
+    
+// Updating the column of repeated_subscriber
+UPDATE
+    idalsuserdatanew
+SET
+    repeated_subscriber = CASE
+        WHEN subscriptions > 1 THEN 'Yes'
+        WHEN subscriptions = 1 THEN 'No'
+        ELSE 'No'
+    END;
+
+    
+// Data preview
+SELECT
+    *
+FROM
+    idalsuserdatanew
+ORDER BY
+    user_id;
+
+    
+// Dropping the column of email
+ALTER TABLE
+    idalsuserdatanew DROP COLUMN email;
