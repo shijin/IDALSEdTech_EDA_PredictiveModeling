@@ -1,9 +1,9 @@
 # IDALS EdTech Subscription Prediction
 
 ## Project Overview
-This project aims to predict the type of subscription plan a user is most likely to choose on the IDALS dance-based ed-tech platform. The prediction is based on user profile features such as dancer type, learning goals, interests, and historical behavior.
+This project aims to predict the type of subscription plan a user is most likely to choose on the IDALS dance-based ed-tech platform. The prediction is based on user profile features such as dancer type, learning goals, interests and past subscriptions.
 
-The insights and models developed here help the platform personalize offers, improve marketing strategies, and reduce churn.
+The insights and models developed here help the platform personalize offers, improve marketing strategies and reduce churn.
 
 ---
 
@@ -25,7 +25,7 @@ Understanding the drivers behind each subscription type can improve conversions 
 ## Dataset Overview
 
 - Source: Internal user data from the IDALS platform
-- Total Records: 14,557 users
+- Total Records: 14,842 users
 - Target Variable: `subscription_plan` (Multiclass - 5 categories)
 
 **Key Features:**
