@@ -105,16 +105,32 @@ Top contributing features:
 - Focus on **Free-to-Paid conversion** campaigns
 - Improve data collection: engagement time, course completion, user demographics
 - Re-frame classification as **Free vs Paid** for better model performance
-- Apply **SMOTE or resampling** to balance class distribution
 - Continuously retrain model as new data becomes available
 
 ---
 
+### To Run on Google Colab:
+1. Open this notebook in Colab :  
+   [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/shijin/IDALSEdTech_EDA_PredictiveModeling/blob/main/IDALSEdTech_ExploratoryDataAnalysis.ipynb)
+   *Use the cleaned dataset from SQL --> 'IDALSUserDataCleaned.csv'
+   *Try approaching from scratch through data cleaning as the raw dataset contains few gibberish records which was done by automated bots - 'idalsrawdata.csv'
+2 . Upload the dataset manually:  
+   - Click the file icon (left sidebar in Colab)
+   - Click **Upload**, then select `IDALSUserDataCleaned.csv`  
+   *(or run the cell `from google.colab import files` to upload interactively)*
+3. Alternatively, replace the `read_csv()` line with a GitHub raw link:
+```python
+df = pd.read_csv('IDALSUserDataCleaned.csv')
+```
+4. After EDA, export the preprocessed data --> 'updatedidalsuserdata.csv'
+5. Predictive Modeling:
+   Import the 'updatedidalsuserdata.csv' file to perform predictive modeling
+---
 
 ## Author
 
 **Shijin Ramesh**  
-_Data Analyst | edTech & Social Impact Enthusiast_
+Data Analyst | Ex-Ed Tech Founder
 
 ---
 
